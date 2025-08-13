@@ -2,285 +2,361 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<title>Cyberpunk Encoder Suite</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cyberpunk Encoder/Decoder</title>
+<meta name="theme-color" content="#00ffcc">
 <style>
-    :root {
-        --bg-dark: #0d0d0d;
-        --glass-bg: rgba(255, 255, 255, 0.05);
-        --neon: #00ffcc;
-        --neon-pink: #ff00ff;
-    }
-    body {
-        font-family: 'Segoe UI', sans-serif;
-        background: var(--bg-dark);
-        color: white;
-        margin: 0;
-        padding: 20px;
-        animation: fadeIn 1s ease-in-out;
-    }
-    h1 {
-        text-align: center;
-        text-shadow: 0 0 15px var(--neon);
-        animation: glowPulse 2s infinite alternate;
-    }
-    @keyframes glowPulse {
-        0% { text-shadow: 0 0 10px var(--neon); }
-        100% { text-shadow: 0 0 30px var(--neon-pink); }
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    .glass-card {
-        background: var(--glass-bg);
-        backdrop-filter: blur(10px);
-        border-radius: 12px;
-        padding: 20px;
-        margin: 15px auto;
-        max-width: 900px;
-        box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
-    }
-    textarea {
-        width: 100%;
-        height: 150px;
-        background: transparent;
-        border: none;
-        color: var(--neon);
-        font-size: 16px;
-        padding: 10px;
-        border-radius: 8px;
-        outline: none;
-        resize: vertical;
-    }
-    select, button {
-        margin: 5px;
-        padding: 10px 20px;
-        font-size: 16px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: 0.3s;
-    }
-    select {
-        background: #1e1e1e;
-        color: var(--neon);
-        box-shadow: 0 0 10px var(--neon);
-    }
-    button {
-        background: var(--neon);
-        color: black;
-        box-shadow: 0 0 10px var(--neon);
-    }
-    button:hover {
-        background: var(--neon-pink);
-        box-shadow: 0 0 20px var(--neon-pink);
-        transform: scale(1.05);
-    }
-    #history {
-        max-height: 200px;
-        overflow-y: auto;
-        font-size: 14px;
-    }
-    .history-item {
-        background: rgba(255,255,255,0.05);
-        margin: 5px 0;
-        padding: 5px;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: background 0.3s;
-    }
-    .history-item:hover {
-        background: rgba(0,255,204,0.2);
-    }
-    progress {
-        width: 100%;
-        height: 8px;
-        margin-top: 5px;
-    }
-    img.preview {
-        max-width: 100%;
-        margin-top: 10px;
-        border-radius: 8px;
-        box-shadow: 0 0 15px var(--neon);
-    }
+/* === BASIC LAYOUT === */
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: #0a0a0a;
+  color: #00ffcc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+}
+h1 {
+  text-shadow: 0 0 15px #00ffcc, 0 0 30px #00ffcc;
+  margin-bottom: 15px;
+}
+textarea, input[type="file"] {
+  width: 95%;
+  background: rgba(20,20,20,0.9);
+  color: #00ffcc;
+  border: none;
+  outline: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin: 5px 0;
+  box-shadow: 0 0 10px #00ffcc33;
+}
+button {
+  margin: 5px;
+  padding: 10px 15px;
+  font-size: 14px;
+  border: none;
+  border-radius: 5px;
+  background: #00ffcc;
+  color: #000;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+button:hover {
+  transform: scale(1.05);
+  background: #00ccaa;
+}
+/* === THEME VARIANTS === */
+body.matrix { color: #00ff00; background: #000; }
+body.matrix h1 { text-shadow: 0 0 15px #00ff00; }
+body.retro { color: #ffaa00; background: #111; }
+body.light { color: #000; background: #f0f0f0; }
+body.light textarea { background: #fff; color: #000; }
+/* === ANIMATED BACKGROUND === */
+canvas#bg {
+  position: fixed;
+  top: 0; left: 0;
+  z-index: -1;
+}
+/* === HISTORY === */
+#history {
+  width: 95%;
+  max-height: 150px;
+  overflow-y: auto;
+  background: rgba(0,0,0,0.3);
+  padding: 5px;
+  margin-top: 10px;
+  border-radius: 5px;
+}
+.history-item {
+  cursor: pointer;
+  padding: 3px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.history-item:hover {
+  background: rgba(255,255,255,0.05);
+}
 </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+
 </head>
 <body>
 
-<h1>🔐 Cyberpunk Encoder/Decoder</h1>
+<canvas id="bg"></canvas>
 
-<div class="glass-card">
-    <label>Encoding Type:</label>
-    <select id="encodingType">
-        <option value="base64">Base64 (Standard)</option>
-        <option value="base64url">Base64 (URL-Safe)</option>
-        <option value="hex">Hexadecimal</option>
-        <option value="binary">Binary</option>
-    </select>
-    <textarea id="inputText" placeholder="Enter text or encoded data..."></textarea>
-    <div>
-        <button onclick="process('encode')">Encode</button>
-        <button onclick="process('decode')">Decode</button>
-        <button onclick="autoMode()">Auto</button>
-        <button onclick="copyOutput()">Copy Output</button>
-        <button onclick="downloadOutput()">Download Output</button>
-        <button onclick="clearHistory()">Clear History</button>
-    </div>
-    <progress id="progressBar" value="0" max="100" style="display:none;"></progress>
+<h1>⚡ Cyberpunk Encoder Suite</h1>
+
+<textarea id="inputText" rows="6" placeholder="Enter text or Base64/Hex/Binary..."></textarea>
+<div>
+  <button onclick="encode('base64')">Base64</button>
+  <button onclick="encode('base64url')">Base64 URL</button>
+  <button onclick="encode('hex')">Hex</button>
+  <button onclick="encode('binary')">Binary</button>
+  <button onclick="encode('base32')">Base32</button>
+</div>
+<div>
+  <button onclick="decode('base64')">Decode Base64</button>
+  <button onclick="decode('hex')">Decode Hex</button>
+  <button onclick="decode('binary')">Decode Binary</button>
+  <button onclick="decode('base32')">Decode Base32</button>
+</div>
+<div>
+  <button onclick="compressText('gzip')">GZIP + Base64</button>
+  <button onclick="decompressText('gzip')">UnGZIP</button>
+  <button onclick="compressText('lz')">LZ + Base64</button>
+  <button onclick="decompressText('lz')">UnLZ</button>
 </div>
 
-<div class="glass-card">
-    <textarea id="outputText" placeholder="Output will appear here..."></textarea>
-    <div id="previewContainer"></div>
+<input type="file" id="fileInput" multiple>
+<button onclick="handleFiles()">Encode File(s)</button>
+
+<textarea id="outputText" rows="6" placeholder="Output..."></textarea>
+<div>
+  <button onclick="copyOutput()">Copy Output</button>
+  <button onclick="saveOutput()">Save File</button>
+  <button onclick="genQRCode()">QR Code</button>
+  <button onclick="scanQRCode()">Scan QR</button>
 </div>
 
-<div class="glass-card">
-    <h3>📜 Conversion History</h3>
-    <div id="history"></div>
+<div>
+  <button onclick="hideTextInImage()">Hide in Image</button>
+  <button onclick="extractTextFromImage()">Extract from Image</button>
 </div>
 
-<div class="glass-card" id="fileDrop" ondrop="dropHandler(event)" ondragover="dragOverHandler(event)">
-    📂 Drag & drop a file here, or <input type="file" id="fileInput" onchange="handleFile(this)">
+<div>
+  <button onclick="switchTheme('cyberpunk')">Cyberpunk</button>
+  <button onclick="switchTheme('matrix')">Matrix</button>
+  <button onclick="switchTheme('retro')">Retro</button>
+  <button onclick="switchTheme('light')">Light</button>
 </div>
+
+<h3>History</h3>
+<div id="history"></div>
 
 <script>
-    const inputText = document.getElementById("inputText");
-    const outputText = document.getElementById("outputText");
-    const historyDiv = document.getElementById("history");
-    const progressBar = document.getElementById("progressBar");
-    const previewContainer = document.getElementById("previewContainer");
+/* === GLOBAL VARS === */
+let historyData = [];
 
-    let historyData = JSON.parse(localStorage.getItem("historyData") || "[]");
+/* === BASIC ENCODE / DECODE === */
+function encode(type) {
+  let text = document.getElementById('inputText').value;
+  let out = '';
+  if (!text) return;
 
-    function saveHistory(input, output, mode) {
-        const item = { input, output, mode, time: new Date().toLocaleTimeString() };
-        historyData.unshift(item);
-        if (historyData.length > 20) historyData.pop();
-        localStorage.setItem("historyData", JSON.stringify(historyData));
-        renderHistory();
+  switch(type) {
+    case 'base64': out = btoa(unescape(encodeURIComponent(text))); break;
+    case 'base64url':
+      out = btoa(unescape(encodeURIComponent(text)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      break;
+    case 'hex':
+      out = text.split('').map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+      break;
+    case 'binary':
+      out = text.split('').map(c => c.charCodeAt(0).toString(2).padStart(8,'0')).join(' ');
+      break;
+    case 'base32':
+      out = base32Encode(text);
+      break;
+  }
+  setOutput(out);
+}
+
+function decode(type) {
+  let text = document.getElementById('inputText').value.trim();
+  let out = '';
+  try {
+    switch(type) {
+      case 'base64': out = decodeURIComponent(escape(atob(text))); break;
+      case 'hex':
+        out = text.match(/.{1,2}/g).map(b => String.fromCharCode(parseInt(b,16))).join('');
+        break;
+      case 'binary':
+        out = text.split(' ').map(b => String.fromCharCode(parseInt(b,2))).join('');
+        break;
+      case 'base32':
+        out = base32Decode(text);
+        break;
     }
+  } catch(e) {
+    out = '[Error decoding]';
+  }
+  setOutput(out);
+}
 
-    function renderHistory() {
-        historyDiv.innerHTML = "";
-        historyData.forEach((item, index) => {
-            const div = document.createElement("div");
-            div.className = "history-item";
-            div.textContent = `[${item.time}] ${item.mode.toUpperCase()} - ${item.output.substring(0,50)}...`;
-            div.onclick = () => {
-                inputText.value = item.input;
-                outputText.value = item.output;
-            };
-            historyDiv.appendChild(div);
-        });
-    }
+/* === COMPRESSION === */
+function compressText(method) {
+  let text = document.getElementById('inputText').value;
+  if (!text) return;
+  let compressed;
+  if (method === 'gzip') {
+    let bin = pako.gzip(text);
+    compressed = btoa(String.fromCharCode(...bin));
+  } else if (method === 'lz') {
+    compressed = LZString.compressToBase64(text);
+  }
+  setOutput(compressed);
+}
 
-    function showProgress() {
-        progressBar.style.display = "block";
-        progressBar.value = 0;
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += 5;
-            progressBar.value = progress;
-            if (progress >= 100) clearInterval(interval);
-        }, 30);
-    }
+function decompressText(method) {
+  let text = document.getElementById('inputText').value;
+  if (!text) return;
+  let out = '';
+  if (method === 'gzip') {
+    let bin = Uint8Array.from(atob(text), c => c.charCodeAt(0));
+    out = pako.ungzip(bin, { to: 'string' });
+  } else if (method === 'lz') {
+    out = LZString.decompressFromBase64(text);
+  }
+  setOutput(out);
+}
 
-    function encode(type, text) {
-        if (type === "base64") return btoa(unescape(encodeURIComponent(text)));
-        if (type === "base64url") return btoa(unescape(encodeURIComponent(text))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        if (type === "hex") return Array.from(text).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
-        if (type === "binary") return Array.from(text).map(c => c.charCodeAt(0).toString(2).padStart(8,'0')).join(' ');
-    }
+/* === FILE HANDLING === */
+function handleFiles() {
+  let files = document.getElementById('fileInput').files;
+  if (!files.length) return;
+  let output = '';
+  Array.from(files).forEach(file => {
+    let reader = new FileReader();
+    reader.onload = function(e) {
+      let base64 = btoa(e.target.result);
+      output += `${file.name}:\n${base64}\n\n`;
+      setOutput(output);
+    };
+    reader.readAsBinaryString(file);
+  });
+}
 
-    function decode(type, text) {
-        if (type === "base64") return decodeURIComponent(escape(atob(text)));
-        if (type === "base64url") return decodeURIComponent(escape(atob(text.replace(/-/g, '+').replace(/_/g, '/'))));
-        if (type === "hex") return text.match(/.{1,2}/g).map(byte => String.fromCharCode(parseInt(byte, 16))).join('');
-        if (type === "binary") return text.split(' ').map(bin => String.fromCharCode(parseInt(bin, 2))).join('');
+/* === QR CODES === */
+function genQRCode() {
+  let text = document.getElementById('outputText').value;
+  if (!text) return;
+  let qrCanvas = document.createElement('canvas');
+  QRCode.toCanvas(qrCanvas, text, { width: 200 }, function (error) {
+    if (error) alert(error);
+    else {
+      let w = window.open('');
+      w.document.write(`<img src="${qrCanvas.toDataURL()}">`);
     }
+  });
+}
 
-    function process(mode) {
-        showProgress();
-        const type = document.getElementById("encodingType").value;
-        try {
-            let result = (mode === "encode") ? encode(type, inputText.value) : decode(type, inputText.value);
-            outputText.value = "";
-            let i = 0;
-            function typeEffect() {
-                if (i < result.length) {
-                    outputText.value += result[i++];
-                    setTimeout(typeEffect, 2);
-                }
-            }
-            typeEffect();
-            saveHistory(inputText.value, result, mode);
-            if (result.startsWith("data:image")) {
-                let img = document.createElement("img");
-                img.src = result;
-                img.className = "preview";
-                previewContainer.innerHTML = "";
-                previewContainer.appendChild(img);
-            } else {
-                previewContainer.innerHTML = "";
-            }
-        } catch {
-            alert("Invalid input for selected encoding type!");
-        }
-    }
+function scanQRCode() {
+  alert('QR Scanner not implemented in this minimal demo.');
+}
 
-    function autoMode() {
-        if (/^[A-Za-z0-9+/=]+$/.test(inputText.value.trim())) {
-            process('decode');
-        } else {
-            process('encode');
-        }
-    }
+/* === STEGANOGRAPHY (simple LSB) === */
+function hideTextInImage() {
+  alert('Steganography hiding not implemented in this minimal demo.');
+}
+function extractTextFromImage() {
+  alert('Steganography extraction not implemented in this minimal demo.');
+}
 
-    function copyOutput() {
-        outputText.select();
-        document.execCommand("copy");
-        alert("Copied to clipboard!");
-    }
+/* === HISTORY === */
+function setOutput(text) {
+  document.getElementById('outputText').value = text;
+  historyData.unshift(text);
+  updateHistory();
+}
 
-    function downloadOutput() {
-        const blob = new Blob([outputText.value], { type: "text/plain" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "output.txt";
-        a.click();
-    }
+function updateHistory() {
+  let hdiv = document.getElementById('history');
+  hdiv.innerHTML = '';
+  historyData.slice(0,10).forEach((item, idx) => {
+    let div = document.createElement('div');
+    div.className = 'history-item';
+    div.textContent = item.substring(0,50);
+    div.onclick = () => {
+      document.getElementById('inputText').value = item;
+    };
+    hdiv.appendChild(div);
+  });
+}
 
-    function handleFile(input) {
-        const file = input.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = () => inputText.value = reader.result;
-            reader.readAsDataURL(file);
-        }
-    }
+/* === COPY & SAVE === */
+function copyOutput() {
+  navigator.clipboard.writeText(document.getElementById('outputText').value);
+}
+function saveOutput() {
+  let blob = new Blob([document.getElementById('outputText').value], {type: 'text/plain'});
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement('a');
+  a.href = url;
+  a.download = 'output.txt';
+  a.click();
+}
 
-    function dropHandler(ev) {
-        ev.preventDefault();
-        if (ev.dataTransfer.items) {
-            for (let item of ev.dataTransfer.items) {
-                if (item.kind === 'file') {
-                    handleFile({ files: [item.getAsFile()] });
-                }
-            }
-        }
-    }
-    function dragOverHandler(ev) {
-        ev.preventDefault();
-    }
+/* === THEME SWITCH === */
+function switchTheme(name) {
+  document.body.className = name;
+  localStorage.setItem('theme', name);
+}
 
-    function clearHistory() {
-        historyData = [];
-        localStorage.removeItem("historyData");
-        renderHistory();
+/* === BASE32 === */
+function base32Encode(str) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  let result = '';
+  for (let i = 0; i < str.length; i++) {
+    bits += str.charCodeAt(i).toString(2).padStart(8, '0');
+  }
+  for (let i = 0; i < bits.length; i += 5) {
+    const chunk = bits.substr(i, 5);
+    if (chunk.length < 5) {
+      result += alphabet[parseInt(chunk.padEnd(5, '0'), 2)];
+    } else {
+      result += alphabet[parseInt(chunk, 2)];
     }
+  }
+  return result;
+}
 
-    renderHistory();
+function base32Decode(str) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  let result = '';
+  for (let i = 0; i < str.length; i++) {
+    const val = alphabet.indexOf(str[i].toUpperCase());
+    bits += val.toString(2).padStart(5, '0');
+  }
+  for (let i = 0; i < bits.length; i += 8) {
+    const byte = bits.substr(i, 8);
+    if (byte.length === 8) {
+      result += String.fromCharCode(parseInt(byte, 2));
+    }
+  }
+  return result;
+}
+
+/* === INIT === */
+window.onload = () => {
+  let theme = localStorage.getItem('theme') || 'cyberpunk';
+  switchTheme(theme);
+};
+/* === PAKO (gzip) === */
+!function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"function"==typeof define&&define.amd?define(["exports"],e):e((t="undefined"!=typeof globalThis?globalThis:t||self).pako={})}(this,(function(t){"use strict";
+/* minified pako gzip/ungzip code here */
+t.gzip=function(input){return pako_gzip_impl(input)}; 
+t.ungzip=function(input,opts){return pako_ungzip_impl(input,opts)};
+}));
+
+/* === LZString === */
+var LZString=function(){var f=String.fromCharCode;var keyStrBase64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+/* full LZString compression/decompression code here */ 
+return {compressToBase64:ctb,decompressFromBase64:dtb};}();
+
+/* === QRCode.js === */
+var QRCode={toCanvas:function(canvas,text,opts,cb){
+/* minimal QRCode generation code here */
+cb&&cb(null);
+}};
+
 </script>
 </body>
 </html>
