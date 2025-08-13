@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cyberpunk Base64 Tool</title>
+<title>Cyberpunk Encoder/Decoder</title>
 <style>
     :root {
         --bg-dark: #0d0d0d;
@@ -15,13 +15,12 @@
         font-family: 'Segoe UI', sans-serif;
         background: var(--bg-dark);
         color: white;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        margin: 0;
         padding: 20px;
         animation: fadeIn 1s ease-in-out;
     }
     h1 {
+        text-align: center;
         text-shadow: 0 0 15px var(--neon);
         animation: glowPulse 2s infinite alternate;
     }
@@ -36,14 +35,11 @@
     .glass-card {
         background: var(--glass-bg);
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
         padding: 20px;
-        margin: 15px 0;
-        width: 90%;
-        max-width: 800px;
+        margin: 15px auto;
+        max-width: 900px;
         box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
-        animation: fadeIn 1s ease-in-out;
     }
     textarea {
         width: 100%;
@@ -57,16 +53,23 @@
         outline: none;
         resize: vertical;
     }
-    button {
+    select, button {
         margin: 5px;
         padding: 10px 20px;
         font-size: 16px;
         border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+    select {
+        background: #1e1e1e;
+        color: var(--neon);
+        box-shadow: 0 0 10px var(--neon);
+    }
+    button {
         background: var(--neon);
         color: black;
-        cursor: pointer;
-        border-radius: 5px;
-        transition: 0.3s;
         box-shadow: 0 0 10px var(--neon);
     }
     button:hover {
@@ -74,32 +77,26 @@
         box-shadow: 0 0 20px var(--neon-pink);
         transform: scale(1.05);
     }
-    #fileDrop {
-        border: 2px dashed var(--neon);
-        padding: 20px;
-        margin-top: 10px;
-        border-radius: 8px;
-        transition: 0.3s;
-    }
-    #fileDrop.dragover {
-        background: rgba(0, 255, 204, 0.1);
-        box-shadow: 0 0 20px var(--neon);
-    }
-    .counter {
+    #history {
+        max-height: 200px;
+        overflow-y: auto;
         font-size: 14px;
-        opacity: 0.7;
+    }
+    .history-item {
+        background: rgba(255,255,255,0.05);
+        margin: 5px 0;
+        padding: 5px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    .history-item:hover {
+        background: rgba(0,255,204,0.2);
     }
     progress {
         width: 100%;
         height: 8px;
-        border-radius: 4px;
-        overflow: hidden;
-    }
-    progress::-webkit-progress-bar {
-        background: rgba(255, 255, 255, 0.1);
-    }
-    progress::-webkit-progress-value {
-        background: var(--neon);
+        margin-top: 5px;
     }
     img.preview {
         max-width: 100%;
@@ -111,58 +108,72 @@
 </head>
 <body>
 
-<h1>🔐 Cyberpunk Base64 Tool</h1>
+<h1>🔐 Cyberpunk Encoder/Decoder</h1>
 
 <div class="glass-card">
-    <textarea id="inputText" placeholder="Enter text or Base64 here..."></textarea>
-    <div class="counter" id="inputCount">0 chars</div>
+    <label>Encoding Type:</label>
+    <select id="encodingType">
+        <option value="base64">Base64 (Standard)</option>
+        <option value="base64url">Base64 (URL-Safe)</option>
+        <option value="hex">Hexadecimal</option>
+        <option value="binary">Binary</option>
+    </select>
+    <textarea id="inputText" placeholder="Enter text or encoded data..."></textarea>
     <div>
-        <button onclick="encodeBase64()">Encode</button>
-        <button onclick="decodeBase64()">Decode</button>
+        <button onclick="process('encode')">Encode</button>
+        <button onclick="process('decode')">Decode</button>
         <button onclick="autoMode()">Auto</button>
-        <button onclick="copyOutput()">Copy</button>
-        <button onclick="downloadFile()">Download</button>
-        <button onclick="generateQR()">QR Code</button>
+        <button onclick="copyOutput()">Copy Output</button>
+        <button onclick="downloadOutput()">Download Output</button>
+        <button onclick="clearHistory()">Clear History</button>
     </div>
     <progress id="progressBar" value="0" max="100" style="display:none;"></progress>
 </div>
 
 <div class="glass-card">
     <textarea id="outputText" placeholder="Output will appear here..."></textarea>
-    <div class="counter" id="outputCount">0 chars</div>
     <div id="previewContainer"></div>
+</div>
+
+<div class="glass-card">
+    <h3>📜 Conversion History</h3>
+    <div id="history"></div>
 </div>
 
 <div class="glass-card" id="fileDrop" ondrop="dropHandler(event)" ondragover="dragOverHandler(event)">
     📂 Drag & drop a file here, or <input type="file" id="fileInput" onchange="handleFile(this)">
 </div>
 
-<div class="glass-card" id="qrContainer" style="display:none;"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
     const inputText = document.getElementById("inputText");
     const outputText = document.getElementById("outputText");
-    const inputCount = document.getElementById("inputCount");
-    const outputCount = document.getElementById("outputCount");
-    const fileDrop = document.getElementById("fileDrop");
+    const historyDiv = document.getElementById("history");
     const progressBar = document.getElementById("progressBar");
     const previewContainer = document.getElementById("previewContainer");
 
-    function updateCounters() {
-        inputCount.textContent = `${inputText.value.length} chars`;
-        outputCount.textContent = `${outputText.value.length} chars`;
-        localStorage.setItem("lastInput", inputText.value);
-    }
-    inputText.addEventListener("input", updateCounters);
-    outputText.addEventListener("input", updateCounters);
+    let historyData = JSON.parse(localStorage.getItem("historyData") || "[]");
 
-    window.onload = () => {
-        if (localStorage.getItem("lastInput")) {
-            inputText.value = localStorage.getItem("lastInput");
-            updateCounters();
-        }
-    };
+    function saveHistory(input, output, mode) {
+        const item = { input, output, mode, time: new Date().toLocaleTimeString() };
+        historyData.unshift(item);
+        if (historyData.length > 20) historyData.pop();
+        localStorage.setItem("historyData", JSON.stringify(historyData));
+        renderHistory();
+    }
+
+    function renderHistory() {
+        historyDiv.innerHTML = "";
+        historyData.forEach((item, index) => {
+            const div = document.createElement("div");
+            div.className = "history-item";
+            div.textContent = `[${item.time}] ${item.mode.toUpperCase()} - ${item.output.substring(0,50)}...`;
+            div.onclick = () => {
+                inputText.value = item.input;
+                outputText.value = item.output;
+            };
+            historyDiv.appendChild(div);
+        });
+    }
 
     function showProgress() {
         progressBar.style.display = "block";
@@ -172,42 +183,57 @@
             progress += 5;
             progressBar.value = progress;
             if (progress >= 100) clearInterval(interval);
-        }, 50);
+        }, 30);
     }
 
-    function encodeBase64() {
-        try {
-            showProgress();
-            outputText.value = btoa(unescape(encodeURIComponent(inputText.value)));
-            updateCounters();
-        } catch (e) {
-            alert("Error encoding text");
-        }
+    function encode(type, text) {
+        if (type === "base64") return btoa(unescape(encodeURIComponent(text)));
+        if (type === "base64url") return btoa(unescape(encodeURIComponent(text))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        if (type === "hex") return Array.from(text).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+        if (type === "binary") return Array.from(text).map(c => c.charCodeAt(0).toString(2).padStart(8,'0')).join(' ');
     }
 
-    function decodeBase64() {
+    function decode(type, text) {
+        if (type === "base64") return decodeURIComponent(escape(atob(text)));
+        if (type === "base64url") return decodeURIComponent(escape(atob(text.replace(/-/g, '+').replace(/_/g, '/'))));
+        if (type === "hex") return text.match(/.{1,2}/g).map(byte => String.fromCharCode(parseInt(byte, 16))).join('');
+        if (type === "binary") return text.split(' ').map(bin => String.fromCharCode(parseInt(bin, 2))).join('');
+    }
+
+    function process(mode) {
+        showProgress();
+        const type = document.getElementById("encodingType").value;
         try {
-            showProgress();
-            let decoded = decodeURIComponent(escape(atob(inputText.value)));
-            outputText.value = decoded;
-            updateCounters();
-            if (inputText.value.startsWith("data:image")) {
+            let result = (mode === "encode") ? encode(type, inputText.value) : decode(type, inputText.value);
+            outputText.value = "";
+            let i = 0;
+            function typeEffect() {
+                if (i < result.length) {
+                    outputText.value += result[i++];
+                    setTimeout(typeEffect, 2);
+                }
+            }
+            typeEffect();
+            saveHistory(inputText.value, result, mode);
+            if (result.startsWith("data:image")) {
                 let img = document.createElement("img");
-                img.src = inputText.value;
-                img.classList.add("preview");
+                img.src = result;
+                img.className = "preview";
                 previewContainer.innerHTML = "";
                 previewContainer.appendChild(img);
+            } else {
+                previewContainer.innerHTML = "";
             }
-        } catch (e) {
-            alert("Invalid Base64 string!");
+        } catch {
+            alert("Invalid input for selected encoding type!");
         }
     }
 
     function autoMode() {
         if (/^[A-Za-z0-9+/=]+$/.test(inputText.value.trim())) {
-            decodeBase64();
+            process('decode');
         } else {
-            encodeBase64();
+            process('encode');
         }
     }
 
@@ -215,6 +241,14 @@
         outputText.select();
         document.execCommand("copy");
         alert("Copied to clipboard!");
+    }
+
+    function downloadOutput() {
+        const blob = new Blob([outputText.value], { type: "text/plain" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "output.txt";
+        a.click();
     }
 
     function handleFile(input) {
@@ -228,7 +262,6 @@
 
     function dropHandler(ev) {
         ev.preventDefault();
-        fileDrop.classList.remove("dragover");
         if (ev.dataTransfer.items) {
             for (let item of ev.dataTransfer.items) {
                 if (item.kind === 'file') {
@@ -239,33 +272,15 @@
     }
     function dragOverHandler(ev) {
         ev.preventDefault();
-        fileDrop.classList.add("dragover");
     }
 
-    function downloadFile() {
-        try {
-            const blob = new Blob([atob(outputText.value)], { type: "application/octet-stream" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "decoded_file.bin";
-            a.click();
-            URL.revokeObjectURL(url);
-        } catch (e) {
-            alert("Error creating file. Make sure output is valid Base64.");
-        }
+    function clearHistory() {
+        historyData = [];
+        localStorage.removeItem("historyData");
+        renderHistory();
     }
 
-    function generateQR() {
-        document.getElementById("qrContainer").style.display = "block";
-        document.getElementById("qrContainer").innerHTML = "";
-        new QRCode(document.getElementById("qrContainer"), {
-            text: outputText.value || inputText.value,
-            width: 200,
-            height: 200
-        });
-    }
+    renderHistory();
 </script>
-
 </body>
 </html>
